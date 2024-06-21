@@ -54,6 +54,13 @@ pub struct SipHasher128 {
     processed: usize, // how many bytes we've processed
 }
 
+impl Default for SipHasher128 {
+    #[inline]
+    fn default() -> SipHasher128 {
+        SipHasher128::new_with_keys(0, 0)
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 struct State {

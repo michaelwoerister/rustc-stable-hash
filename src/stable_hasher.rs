@@ -2,15 +2,20 @@
 
 use crate::sip128::SipHasher128;
 
-use std::fmt;
+use std::fmt::Debug;
 use std::hash::Hasher;
 
 #[cfg(test)]
 mod tests;
 
 /// Trait for retrieving the result of the stable hashing operation.
-pub trait StableHasherResult: Sized {
-    fn finish(hash: [u64; 2]) -> Self;
+pub trait StableHasherResult<const W: usize>: Sized {
+    fn finish(hash: [u64; W]) -> Self;
+}
+
+pub trait HashImpl<const W: usize>: Hasher + Debug + Default {
+    fn short_write<const LEN: usize>(&mut self, bytes: [u8; LEN]);
+    fn finish(self) -> [u64; W];
 }
 
 /// When hashing something that ends up affecting properties like symbol names,
@@ -20,31 +25,36 @@ pub trait StableHasherResult: Sized {
 /// To that end we always convert integers to little-endian format before
 /// hashing and the architecture dependent `isize` and `usize` types are
 /// extended to 64 bits if needed.
-pub struct StableHasher {
-    state: SipHasher128,
+#[derive(Debug)]
+pub struct StableHasher<const W: usize, H: HashImpl<W>> {
+    state: H,
 }
 
-impl fmt::Debug for StableHasher {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.state)
+impl HashImpl<2> for SipHasher128 {
+    fn finish(self) -> [u64; 2] {
+        self.finish128()
+    }
+
+    fn short_write<const LEN: usize>(&mut self, bytes: [u8; LEN]) {
+        self.short_write(bytes);
     }
 }
 
-impl StableHasher {
+impl<const W: usize, H: HashImpl<W>> StableHasher<W, H> {
     #[inline]
     pub fn new() -> Self {
         StableHasher {
-            state: SipHasher128::new_with_keys(0, 0),
+            state: Default::default(),
         }
     }
 
     #[inline]
-    pub fn finish<W: StableHasherResult>(self) -> W {
-        W::finish(self.state.finish128())
+    pub fn finish<R: StableHasherResult<W>>(self) -> R {
+        R::finish(self.state.finish())
     }
 }
 
-impl Hasher for StableHasher {
+impl<const W: usize, H: HashImpl<W>> Hasher for StableHasher<W, H> {
     fn finish(&self) -> u64 {
         panic!("use StableHasher::finalize instead");
     }
@@ -137,7 +147,7 @@ impl Hasher for StableHasher {
         // Cold path
         #[cold]
         #[inline(never)]
-        fn hash_value(state: &mut SipHasher128, value: u64) {
+        fn hash_value<const W: usize, H: HashImpl<W>>(state: &mut H, value: u64) {
             state.write_u8(0xFF);
             state.short_write(value.to_le_bytes());
         }

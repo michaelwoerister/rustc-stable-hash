@@ -12,7 +12,7 @@ use super::*;
 #[derive(Debug, PartialEq)]
 struct TestHash([u64; 2]);
 
-impl StableHasherResult for TestHash {
+impl StableHasherResult<2> for TestHash {
     fn finish(hash: [u64; 2]) -> TestHash {
         TestHash(hash)
     }
@@ -35,7 +35,7 @@ fn test_hash_integers() {
     let test_i128 = -500_i128;
     let test_isize = -600_isize;
 
-    let mut h = StableHasher::new();
+    let mut h: StableHasher<2, SipHasher128> = StableHasher::new();
     test_u8.hash(&mut h);
     test_u16.hash(&mut h);
     test_u32.hash(&mut h);
@@ -60,7 +60,7 @@ fn test_hash_usize() {
     // Test that usize specifically is handled consistently across platforms.
     let test_usize = 0xABCDEF01_usize;
 
-    let mut h = StableHasher::new();
+    let mut h: StableHasher<2, SipHasher128> = StableHasher::new();
     test_usize.hash(&mut h);
 
     // This depends on the hashing algorithm. See note at top of file.
@@ -74,7 +74,7 @@ fn test_hash_isize() {
     // Test that isize specifically is handled consistently across platforms.
     let test_isize = -7_isize;
 
-    let mut h = StableHasher::new();
+    let mut h: StableHasher<2, SipHasher128> = StableHasher::new();
     test_isize.hash(&mut h);
 
     // This depends on the hashing algorithm. See note at top of file.
@@ -84,7 +84,7 @@ fn test_hash_isize() {
 }
 
 fn hash<T: Hash>(t: &T) -> TestHash {
-    let mut h = StableHasher::new();
+    let mut h: StableHasher<2, SipHasher128> = StableHasher::new();
     t.hash(&mut h);
     h.finish()
 }
